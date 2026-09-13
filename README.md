@@ -22,89 +22,31 @@ ATmega328P 마이크로컨트롤러 기반의 **2륜 역진자 자율 균형 로
 
 ## 🏛 시스템 아키텍처 (System Architecture)
 
-                       \+---------------------------------------+
+**Tier 1: Android Host Application (원격 조종 & 텔레메트리)**
 
-                       |       Android Control App             |
+| Virtual Joystick (JoystickView) 360° 터치 변위 연산 주행 명령(F, B, L, R, Z) | PID Tuning Dashboard 런타임 Kp, Ki, Kd 게인 조정 모터 ON/OFF 토글 | ConnectedThread RFCOMM 소켓 워커 스레드 논블로킹 스트리밍 |
+| :---: | :---: | :---: |
 
-                       |  \- Custom Virtual Joystick View       |
+↓ \[ Bluetooth SPP 무선 링크 (HC-05 모듈 / UART 9600 Baud) \] ↓
 
-                       |  \- Real-time PID Gain Tuning UI       |
+**Tier 2: ATmega328P 100Hz Real-Time Firmware (임베디드 제어 펌웨어)**
 
-                       \+-------------------+-------------------+
+| Sub-block A: 명령 파서 & 저장소 Bt\_Com.c (시리얼 명령 파서) ⇄ EEPROM.c (튜닝된 PID 게인 영구 저장) |
+| :---- |
+| **Sub-block B: 센서 수집 및 1D 칼만 필터 상태 추정 파이프라인** MPU6050.c (I2C 100kHz 원시값) → Angle\_Calculation.c (1,000회 오프셋 보정) → Kalman\_Filter.c (자이로 각속도 적분 \+ 가속도 융합) → 추정 피치각(θ\_kalman) |
+| **Sub-block C: 이중 루프 PID 제어 및 모터 믹싱 알고리즘** • Balance PID (Kp=12.0, Ki=10.5, Kd=1.5) & Rotate PID (Kp=2.5, Kd=0.2) • Balancing\_Control.c (모터 믹싱: BasePWM \= constrain(BalPwm \+ DrivePwm, ±255), 좌/우 모터 PWM 및 방향 판별) |
+| **Sub-block D: 하드웨어 추상화 계층 (BSW)** • Timer 0 (PD5/OC0B) & Timer 1 (PB2/OC1B) Fast PWM (\~976Hz) • Direction GPIOs (좌: PB0/PB1, 우: PD7/PD6) |
 
-                                           | Bluetooth SPP (RFCOMM)
+↓ \[ 속도 PWM 듀티 신호 & H-Bridge 방향 논리 신호 \] ↓
 
-                                           v
+**Tier 3: Hardware Actuation & Physical Plant (구동부 및 역진자 기구부)**
 
-\+-----------------------------------------------------------------------------------+
+| L298N Dual H-Bridge 드라이버 모듈 → 좌/우 DC 기어드 모터 → 2륜 역진자 로봇 차체 (무게중심 및 관성 모멘트) |
+| :---: |
 
-| ATmega328P Firmware                                                               |
+↺ \[ 물리적 피드백: 로봇 차체의 실시간 기울기 각도(θ)와 각속도(ω)가 MPU6050 센서로 전달되는 폐루프 제어 \]
 
-|                                                                                   |
-
-|  \[ SENSOR LAYER \]                                                                 |
-
-|   \+-------------------+       \+-----------------------+                           |
-
-|   | MPU6050 (I2C/TWI) | \----\> | 1D Kalman Filter      | \---\> Pitch Angle (θ)      |
-
-|   | Accel & Gyro Raw  |       | Sensor Calibration    |                           |
-
-|   \+-------------------+       \+-----------------------+                           |
-
-|                                           |                                       |
-
-|  \[ CONTROL LAYER \]                        v                                       |
-
-|   \+---------------------------------------------------+                           |
-
-|   | Dual PID Controller                               |                           |
-
-|   |  1\. Balance PID (θ\_target vs θ\_est) \-\> PwmBal     |                           |
-
-|   |  2\. Rotate PID  (ψ\_target vs ψ\_est) \-\> CompRotate |                           |
-
-|   \+-------------------------+-------------------------+                           |
-
-|                             |                                                     |
-
-|                             v                                                     |
-
-|   \+---------------------------------------------------+                           |
-
-|   | Motor Mixing & Direction Logic (BalancingControl) |                           |
-
-|   \+-------------------------+-------------------------+                           |
-
-|                             |                                                     |
-
-|  \[ BSW & ACTUATION LAYER \]  v                                                     |
-
-|   \+---------------------------------------------------+                           |
-
-|   | Timer 0 & 1 Fast PWM (0\~255) \+ Direction GPIOs    |                           |
-
-|   \+-------------------------+-------------------------+                           |
-
-\+-----------------------------|-----------------------------------------------------+
-
-                              v
-
-               \+-----------------------------+
-
-               |  L298N Dual H-Bridge Driver |
-
-               \+--------------+--------------+
-
-                              |
-
-                     \+--------+--------+
-
-                     |                 |
-
-                     v                 v
-
-             \[ Left DC Motor \]  \[ Right DC Motor \]
+&nbsp;
 
 ---
 
@@ -248,7 +190,7 @@ BalancingRobot/
 
 ## 📱 안드로이드 원격 제어 앱 (Android Companion App)
 
-프로젝트 레포지토리: [BalancingRobot\_app](https://github.com/jhleedev00/BalancingRobot_app)
+프로젝트 레포지토리: [balancingRobot\_app](https://github.com/jhleedev00/balancingRobot_app)
 
 * **Bluetooth Classic SPP 연결 관리**:  
   * `ConnectedThread` 백그라운드 워커 스레드를 통해 UI 블로킹 없는 양방향 논블로킹 스트리밍 통신 구현  
