@@ -1,0 +1,47 @@
+# ==========================================
+# Atmel Studio / Microchip Studio .gitignore
+# ==========================================
+
+# 빌드 산출물 디렉터리
+Debug/
+Release/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio 및 Atmel Studio 캐시/작업 디렉터리
+.vs/
+.atmelstart/
+ipch/
+
+# 컴파일 산출물 및 바이너리
+*.o
+*.obj
+*.hex
+*.bin
+*.elf
+*.eep
+*.lss
+*.map
+*.srec
+*.sym
+*.a
+*.lib
+
+# 의존성 및 Makefile 산출물
+*.d
+makedep.mk
+
+# 사용자별 설정 및 로컬 UI 레이아웃 파일 (공유 금지)
+*.suo
+*.user
+*.userprefs
+*.atsuo
+
+# 백업 및 임시 파일
+*.bak
+*.[Bb]ackup
+*.tmp
+*.log
+
+# Atmel Studio 자동 생성 산출물
+*.lock
